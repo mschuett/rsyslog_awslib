@@ -14,7 +14,8 @@ int main() {
     const char *logMessages[] = {
             "hello world",
             "this is a test",
-            "and another one"
+            "and another one",
+            NULL
     };
 
     awslib_inst = aws_init(region);
@@ -27,10 +28,13 @@ int main() {
         return rc;
     }
 
-    rc = aws_logs_msg_put(awslib_inst, (char **) logMessages);
-    std::printf("aws_logs_msg_put\t--> rc = %d; status = %d; message = '%s'\n",
-                rc, awslib_inst->last_status_code, awslib_inst->last_error_message);
-
+    const char* msg;
+    int i = 0;
+    while (NULL != (msg = logMessages[i++])) {
+        rc = aws_logs_msg_put(awslib_inst, logGroup, logStream, msg);
+        std::printf("aws_logs_msg_put\t--> rc = %d; status = %d; message = '%s'\n",
+                    rc, awslib_inst->last_status_code, awslib_inst->last_error_message);
+    }
     aws_shutdown(awslib_inst);
     return rc;
 }

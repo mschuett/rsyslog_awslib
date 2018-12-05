@@ -19,6 +19,7 @@ struct awslib_instance {
     Aws::CloudWatchLogs::CloudWatchLogsClient *client;
     int last_status_code;
     char last_error_message[RSYSLOG_AWSLIB_ERR_MSG_SIZE];
+    Aws::String seq_token;
 };
 
 #else /* __cplusplus */
@@ -33,11 +34,11 @@ struct awslib_instance {
 #endif
 
 void hello();
-awslib_instance* aws_init(char *region);
+struct awslib_instance* aws_init(const char *region);
 void aws_shutdown(struct awslib_instance *);
 
-int aws_logs_ensure(struct awslib_instance *inst, char *group_name, char *stream_name);
-int aws_logs_msg_put(struct awslib_instance *inst, char **msgs);
+int aws_logs_ensure(struct awslib_instance *inst, const char *group_name, const char *stream_name);
+int aws_logs_msg_put(struct awslib_instance *inst, const char *group_name, const char *stream_name, const char *msg);
 
 #ifdef __cplusplus
 }

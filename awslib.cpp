@@ -6,16 +6,16 @@
 #include <aws/logs/model/CreateLogGroupRequest.h>
 #include <aws/logs/model/DescribeLogStreamsRequest.h>
 #include <aws/logs/model/CreateLogStreamRequest.h>
+#include <aws/logs/model/PutLogEventsRequest.h>
+#include <aws/logs/model/PutLogEventsResult.h>
 #include <aws/core/utils/logging/LogSystemInterface.h>
 #include <aws/core/utils/logging/LogMacros.h>
+
+#include <chrono>
 #include <iostream>
 
 
-void hello() {
-    std::cout << "Hello, World!" << std::endl;
-}
-
-awslib_instance* aws_init(char *region) {
+awslib_instance* aws_init(const char *region) {
     struct awslib_instance *inst;
     Aws::SDKOptions *options;
     Aws::CloudWatchLogs::CloudWatchLogsClient *client;
@@ -44,7 +44,7 @@ awslib_instance* aws_init(char *region) {
 }
 
 /* check for log group and log stream, create if not present */
-int aws_logs_ensure(struct awslib_instance* inst, char* group_name, char* stream_name) {
+int aws_logs_ensure(struct awslib_instance* inst, const char* group_name, const char* stream_name) {
     Aws::CloudWatchLogs::CloudWatchLogsClient *client;
     client = (Aws::CloudWatchLogs::CloudWatchLogsClient*) inst->client;
 
@@ -100,7 +100,7 @@ int aws_logs_ensure(struct awslib_instance* inst, char* group_name, char* stream
     }
 
     if (desc_stream_resp.GetResult().GetLogStreams().empty()) {
-        // create the stream
+        // stream does not exist, create it
         create_stream_req.SetLogGroupName(group_name);
         create_stream_req.SetLogStreamName(stream_name);
         create_stream_resp = client->CreateLogStream(create_stream_req);
@@ -112,15 +112,61 @@ int aws_logs_ensure(struct awslib_instance* inst, char* group_name, char* stream
             inst->last_status_code = 1;
             return 1;
         }
+    } else {
+        // existing stream, get sequence token
+        Aws::String seq_token;
+        Aws::CloudWatchLogs::Model::LogStream stream;
+
+        stream = desc_stream_resp.GetResult().GetLogStreams().front();
+        seq_token = stream.GetUploadSequenceToken();
+        // AWS_LOGSTREAM_INFO(RSYSLOG_AWSLIB_TAG, (
+        std::cout << \
+                "aws_ensure: found logstream " << stream.GetArn() << \
+                ", created " << stream.GetCreationTime() << ", with last sequence token " << \
+                stream.GetUploadSequenceToken() << std::endl;
+        inst->seq_token = seq_token;
     }
 
     inst->last_status_code = 0;
     return 0;
 }
 
-int aws_logs_msg_put(struct awslib_instance* inst, char** msgs) {
-    AWS_LOGSTREAM_INFO(RSYSLOG_AWSLIB_TAG, "aws_logs_msg_put: not implemented");
-    // TODO
+int aws_logs_msg_put(struct awslib_instance* inst, const char *group_name, const char *stream_name, const char* msg) {
+    Aws::CloudWatchLogs::Model::PutLogEventsRequest put_req;
+    Aws::CloudWatchLogs::Model::PutLogEventsOutcome put_resp;
+    Aws::CloudWatchLogs::CloudWatchLogsClient *client;
+    client = (Aws::CloudWatchLogs::CloudWatchLogsClient*) inst->client;
+
+    AWS_LOGSTREAM_INFO(RSYSLOG_AWSLIB_TAG, "aws_logs_msg_put: " << msg);
+
+    put_req.SetLogGroupName(group_name);
+    put_req.SetLogStreamName(stream_name);
+    if (!inst->seq_token.empty()) {
+        // only set for existing streams, empty for newly created streams
+        put_req.SetSequenceToken(inst->seq_token);
+    }
+
+    int_fast64_t ts_now = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+    Aws::CloudWatchLogs::Model::InputLogEvent event;
+    event.SetTimestamp(ts_now);
+    event.SetMessage(msg);
+    put_req.AddLogEvents(event);
+
+    put_resp = client->PutLogEvents(put_req);
+    if (!put_resp.IsSuccess()) {
+        std::cout << "ERROR: " << put_resp.GetError() << std::endl;
+        std::snprintf(inst->last_error_message, RSYSLOG_AWSLIB_ERR_MSG_SIZE,
+                      "Error in PutLogEvents: %s",
+                      put_resp.GetError().GetMessage().c_str());
+        inst->last_status_code = 1;
+        return 1;
+    } else {
+        Aws::CloudWatchLogs::Model::PutLogEventsResult result;
+        result = put_resp.GetResult();
+        std::cout << "Put messages yields token " << result.GetNextSequenceToken() << std::endl;
+        inst->seq_token = result.GetNextSequenceToken();
+    }
 
     return 0;
 }
