@@ -13,6 +13,26 @@ the Rsyslog plugin interface, nor the AWS SDK for C++.
 But if this turns out to be usable it could even become a useful boilerplate
 for similar outputs to SQS or Kinesis.
 
+## Compile and Install
+
+This is a CMake project (no special preference, it was just the easiest to setup).
+The target `rsyslog_awslib` will build a shared library `librsyslog_awslib.so`,
+this has to get into a lib dir in order to compile the Rsyslog plugin `omawslogs`.
+
+## Configuration
+
+The Rsyslog module `omawslogs` is configured as an `action()`. For example:
+```
+action(name="cloudwatch" type="omawslogs" region="eu-central-1")
+```
+
+Supported options are:
+* **region** for the AWS region, default is `us-east-1`
+* **group** for the CloudWatch Logs group, default is `rsyslog`
+* **stream** for the CloudWatch Logs stream, default is to use the current hostname
+* **template** for the Rsyslog message template, default is `RSYSLOG_FileFormat`
+
+
 ## Library and component issues
 
 One big problem with this plugin: it is written in C++ in order to use the
@@ -98,14 +118,9 @@ receive/processing (still better than nothing).
 #### Boilerplate
 
 I tried to copy the plugin structure from other plugins in order to make it
-understandable and maintainable for the Rsyslog developers. Unfortunately I
-do not get most of it myself.
-E.g. could we please drop Rsyslog 4.x compatibility at some point?
-It would help to have one config interface and not two parallel ones.
+understandable and maintainable for the Rsyslog developers.
 
 ### AWS CloudWatch functionality
 
 This library will create the configured log group and stream on startup.
 It will not setup any retention policy, any tags, KMS encryption, or stream destinations.
-
-The default region is `us-east-1`. So if no region is configured then your logs will end up there.
