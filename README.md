@@ -16,6 +16,9 @@ for similar outputs to SQS or Kinesis.
 ## Compile and Install
 
 This is a CMake project (no special preference, it was just the easiest to setup).
+It depends on the libraries `libaws-cpp-sdk-core.so` and `libaws-cpp-sdk-logs.so`
+from the [AWS SDK for C++](https://github.com/aws/aws-sdk-cpp).
+
 The target `rsyslog_awslib` will build a shared library `librsyslog_awslib.so`,
 this has to get into a lib dir in order to compile the Rsyslog plugin `omawslogs`.
 
