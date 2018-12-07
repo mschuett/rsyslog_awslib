@@ -1,4 +1,4 @@
-#include "awslib.h"
+#include "rsyslog_awslogs.h"
 #include <unistd.h>
 #include <climits>
 #include <aws/core/Aws.h>

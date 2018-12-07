@@ -3,7 +3,10 @@ project(librsyslog_aws VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_library(rsyslog_awslib SHARED awslib.cpp awslib.h)
+add_library(rsyslog_awslogs SHARED rsyslog_awslogs.cpp rsyslog_awslogs.h)
 
 find_package(AWSSDK REQUIRED COMPONENTS logs)
-target_link_libraries(rsyslog_awslib ${AWSSDK_LINK_LIBRARIES})
+target_link_libraries(rsyslog_awslogs ${AWSSDK_LINK_LIBRARIES})
+
+install (TARGETS rsyslog_awslogs DESTINATION lib)
+install (FILES rsyslog_awslogs.h DESTINATION include)
