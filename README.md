@@ -127,3 +127,9 @@ understandable and maintainable for the Rsyslog developers.
 
 This library will create the configured log group and stream on startup.
 It will not setup any retention policy, any tags, KMS encryption, or stream destinations.
+
+## How to build everything
+
+The file [ec2_ubuntu_test.sh](ec2_ubuntu_test.sh) contains a build script.
+The script works for EC2 instances with Ubuntu 18.04,
+a variant for Amazon Linux is prepared but I still have linking problems. 
