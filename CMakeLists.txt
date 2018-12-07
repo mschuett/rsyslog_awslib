@@ -2,11 +2,12 @@ cmake_minimum_required(VERSION 3.0)
 project(librsyslog_aws VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
+include(GNUInstallDirs)
 
 add_library(rsyslog_awslogs SHARED rsyslog_awslogs.cpp rsyslog_awslogs.h)
 
 find_package(AWSSDK REQUIRED COMPONENTS logs)
 target_link_libraries(rsyslog_awslogs ${AWSSDK_LINK_LIBRARIES})
 
-install (TARGETS rsyslog_awslogs DESTINATION lib)
-install (FILES rsyslog_awslogs.h DESTINATION include)
+install (TARGETS rsyslog_awslogs DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install (FILES rsyslog_awslogs.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
