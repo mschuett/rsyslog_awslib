@@ -130,6 +130,6 @@ It will not setup any retention policy, any tags, KMS encryption, or stream dest
 
 ## How to build everything
 
-The file [ec2_ubuntu_test.sh](ec2_ubuntu_test.sh) contains a build script.
+The file [build_and_install.sh](build_and_install.sh) contains a build script.
 The script works for EC2 instances with Ubuntu 18.04,
 a variant for Amazon Linux is prepared but I still have linking problems. 

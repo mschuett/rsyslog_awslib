@@ -1,17 +1,28 @@
 #!/bin/bash -xe
+#
+# Script to build and install the different libraries.
+# I use this to test the whole workflow on new EC2 instances.
+#
+# Currently working for Ubuntu 18.04.
+#
+# The variants for Debian and Amazon Linux are work in progress,
+# right now they fail to load the plugin (undefined symbols).
+#
 
 . /etc/os-release
-if [[ "$NAME" = "Ubuntu" ]]; then
+if [[ "$NAME" == "Ubuntu" || "$NAME" == "Debian GNU/Linux" ]]; then
 	# from the Rsyslog readme
 	sudo apt-get install -y build-essential pkg-config libestr-dev \
 			libfastjson-dev zlib1g-dev uuid-dev libgcrypt20-dev liblogging-stdlog-dev \
 			libhiredis-dev uuid-dev libgcrypt11-dev liblogging-stdlog-dev flex bison
-	# additional requirements for AWS SDK
+	# for Debian
+	sudo apt-get install -y git
+	# additional requirements for autoconf and AWS SDK
 	sudo apt-get install -y autoconf libtool cmake libssl-dev libcurl4-openssl-dev
 
 	# TODO: not sure how to determine correct libdir for Debian vs. RedHat on different architectures
 	export RSYSLOG_LIBDIR=/usr/lib/x86_64-linux-gnu/rsyslog
-elif [[ "$NAME" = "Amazon Linux" ]]; then
+elif [[ "$NAME" == "Amazon Linux" ]]; then
 	sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 	sudo yum groupinstall -y "Development Tools"
 	sudo yum install -y cmake3 libcurl-devel openssl-devel libestr-devel \
@@ -95,14 +106,14 @@ if [[ ! -f "${RSYSLOG_LIBDIR}/omawslogs.so" ]]; then
 	git clone https://github.com/mschuett/rsyslog.git
 	cd rsyslog
 	git checkout 3483d34
-	# note: Amazon Linux 2 has libfastjson-devel 0.99.4,
+
+	# note: Debian Stretch and Amazon Linux 2 have libfastjson-devel 0.99.4,
 	# but current rsyslog master requires >= 0.99.8
 	# this ignores the requirement, because we _only_ use omawslogs
-	if [[ "$NAME" = "Amazon Linux" ]]; then
-		sed -i -e 's/libfastjson >= 0.99.8/libfastjson >= 0.99.4/' configure.ac
-	fi
+	sed -i -e 's/libfastjson >= 0.99.8/libfastjson >= 0.99.4/' configure.ac
+
 	autoreconf -fvi
-	./configure --disable-generate-man-pages --enable-shared --enable-awslogs #--libdir=/usr/lib64
+	./configure --disable-generate-man-pages --enable-shared --enable-awslogs --disable-debug
 	cd contrib/omawslogs
 	make
 	# TODO: a 'sudo make install' will also install the .la lib; can I prevent that?
@@ -119,7 +130,13 @@ if [[ ! -f /etc/rsyslog.d/omawslogs.conf ]]; then
 
 	echo 'module(load="omawslogs")' | sudo tee -a /etc/rsyslog.d/omawslogs.conf
 	echo 'action(name="cloudwatch" type="omawslogs" region="'$aws_region'")' | sudo tee -a /etc/rsyslog.d/omawslogs.conf
-	# just to check the status
-	sudo service rsyslog restart
-	sudo service rsyslog status -l
 fi
+
+# ensure libraries are found in /usr/local/lib
+echo "/usr/local/lib" | sudo tee -a /etc/ld.so.conf.d/x86_64-linux-gnu.conf
+sudo ldconfig
+
+# restart rsyslogd
+sudo service rsyslog restart
+# just to check the status:
+sudo service rsyslog status -l
