@@ -13,7 +13,17 @@
 if [[ "$NAME" == "Ubuntu" || "$NAME" == "Debian GNU/Linux" ]]; then
 	# from the Rsyslog readme
 	sudo apt-get install -y build-essential pkg-config libestr-dev \
-			libfastjson-dev zlib1g-dev uuid-dev libgcrypt20-dev liblogging-stdlog-dev \
+			libfastjson-dev zlib1g-dev uuid-dev libgcrypt20-dev \
+			uuid-dev libgcrypt11-dev flex bison
+	# additional requirements for autoconf and AWS SDK
+	sudo apt-get install -y autoconf libtool cmake libssl-dev libcurl4-openssl-dev
+
+	# TODO: not sure how to determine correct libdir for Debian vs. RedHat on different architectures
+	export RSYSLOG_LIBDIR=/usr/lib/x86_64-linux-gnu/rsyslog
+elif [[ "$NAME" == "Debian GNU/Linux" ]]; then
+	# from the Rsyslog readme
+	sudo apt-get install -y build-essential pkg-config libestr-dev \
+			libfastjson-dev zlib1g-dev uuid-dev libgcrypt20-dev \
 			libhiredis-dev uuid-dev libgcrypt11-dev liblogging-stdlog-dev flex bison
 	# for Debian
 	sudo apt-get install -y git
