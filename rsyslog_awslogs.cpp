@@ -16,9 +16,30 @@
 #include <chrono>
 #include <iostream>
 
-int CloudWatchLogsController::PutLogEvent(const char *msg) {
+void CloudWatchLogsController::SetLogEvent(const char *msg) {
+    this->SetLogEventBatch(&msg, 1);
+}
+
+void CloudWatchLogsController::SetLogEventBatch(const char **msgs, unsigned int msg_count) {
     AWS_LOGSTREAM_INFO(RSYSLOG_AWSLIB_TAG,
-            "CloudWatchLogsController::PutLogEvent: " << msg);
+                       "CloudWatchLogsController::SetLogEventBatch for "
+                       << msg_count << " messages");
+    int_fast64_t ts_now = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+
+    assert(events.empty());
+    for (int i = 0; i < msg_count; i++) {
+        Aws::CloudWatchLogs::Model::InputLogEvent newEvent;
+        newEvent.SetTimestamp(ts_now);
+        newEvent.SetMessage(msgs[i]);
+        events.push_back(newEvent);
+    }
+}
+
+int CloudWatchLogsController::PutLogEvents() {
+    AWS_LOGSTREAM_INFO(RSYSLOG_AWSLIB_TAG,
+                       "CloudWatchLogsController::PutLogEvents for "
+                       << events.size() << " messages");
 
     Aws::CloudWatchLogs::Model::PutLogEventsRequest put_req;
     Aws::CloudWatchLogs::Model::PutLogEventsOutcome put_resp;
@@ -30,12 +51,8 @@ int CloudWatchLogsController::PutLogEvent(const char *msg) {
         put_req.SetSequenceToken(seq_token);
     }
 
-    int_fast64_t ts_now = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()).count();
-    Aws::CloudWatchLogs::Model::InputLogEvent event;
-    event.SetTimestamp(ts_now);
-    event.SetMessage(msg);
-    put_req.AddLogEvents(event);
+    assert(!events.empty());
+    put_req.WithLogEvents(events);
 
     put_resp = client->PutLogEvents(put_req);
     if (!put_resp.IsSuccess()) {
@@ -48,6 +65,9 @@ int CloudWatchLogsController::PutLogEvent(const char *msg) {
 
         // TODO: I have _no_ idea how this might fail and
         //  how to implement a sensible retry mechanism :-(
+        //  this line will just throw a way the batch of messages:
+        events.clear();
+
         return 1;
     } else {
         Aws::CloudWatchLogs::Model::PutLogEventsResult result;
@@ -56,6 +76,8 @@ int CloudWatchLogsController::PutLogEvent(const char *msg) {
 
         last_error_message[0] = '\0';
         last_status_code = 0;
+
+        events.clear();
 
         // TODO: even on success we should read the RejectedLogEventsInfo
     }
@@ -184,7 +206,13 @@ int CloudWatchLogsController::EnsureGroupAndStream() {
 }
 
 CloudWatchLogsController *aws_init(const char *region, const char *group_name, const char *stream_name) {
+    /* this const should match the batch size in omawslogs.
+     * a smaller value will still work, but incur a performance penalty
+     * (due to std::vector resizing). */
+    const int omawslogs_max_batch_size = 1024;
+
     auto obj = new CloudWatchLogsController(region, group_name, stream_name);
+    obj->events.reserve(omawslogs_max_batch_size);
     return obj;
 }
 
@@ -193,7 +221,13 @@ int aws_logs_ensure(CloudWatchLogsController *ctl) {
 }
 
 int aws_logs_msg_put(CloudWatchLogsController *ctl, const char *msg) {
-    return ctl->PutLogEvent(msg);
+    ctl->SetLogEvent(msg);
+    return ctl->PutLogEvents();
+}
+
+int aws_logs_msg_put_batch(CloudWatchLogsController *ctl, const char *msg[], unsigned int msg_count) {
+    ctl->SetLogEventBatch(msg, msg_count);
+    return ctl->PutLogEvents();
 }
 
 void aws_shutdown(CloudWatchLogsController *ctl) {
