@@ -211,6 +211,10 @@ int CloudWatchLogsController::EnsureGroupAndStream() {
     return 0;
 }
 
+CloudWatchLogsController::~CloudWatchLogsController() {
+    delete client;
+}
+
 
 void aws_init(int loglevel) {
 	options.loggingOptions.logLevel = static_cast<Aws::Utils::Logging::LogLevel>(loglevel);

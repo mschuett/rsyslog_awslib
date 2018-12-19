@@ -25,6 +25,7 @@ public:
 
     CloudWatchLogsController(const char *aws_region, const char *log_group,
                              const char *log_stream);
+    ~CloudWatchLogsController();
     int EnsureGroupAndStream();
     int PutLogEvents();
     void SetLogEvent(const char *msg);
