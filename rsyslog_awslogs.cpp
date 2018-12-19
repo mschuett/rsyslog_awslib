@@ -45,15 +45,20 @@ int CloudWatchLogsController::PutLogEvent(const char *msg) {
                       "Error in PutLogEvents: %s",
                       put_resp.GetError().GetMessage().c_str());
         last_status_code = 1;
+
+        // TODO: I have _no_ idea how this might fail and
+        //  how to implement a sensible retry mechanism :-(
         return 1;
     } else {
         Aws::CloudWatchLogs::Model::PutLogEventsResult result;
         result = put_resp.GetResult();
         seq_token = result.GetNextSequenceToken();
-    }
 
-	last_error_message[0] = '\0';
-	last_status_code = 0;
+        last_error_message[0] = '\0';
+        last_status_code = 0;
+
+        // TODO: even on success we should read the RejectedLogEventsInfo
+    }
     return 0;
 }
 
@@ -61,7 +66,7 @@ CloudWatchLogsController::CloudWatchLogsController(const char *aws_region,
                                                    const char *log_group,
                                                    const char *log_stream) {
     // catch possible NULLs in params
-    this->log_group = log_group ? Aws::String(log_group) : Aws::String();
+    this->log_group  = log_group  ? Aws::String(log_group)  : Aws::String();
     this->log_stream = log_stream ? Aws::String(log_stream) : Aws::String();
 
     options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Info;
@@ -74,7 +79,7 @@ CloudWatchLogsController::CloudWatchLogsController(const char *aws_region,
     client = new Aws::CloudWatchLogs::CloudWatchLogsClient(clientConfig);
 
     /* it might be useful to show some user/client metadata
-       like account ID and actual region
+       like account ID and actual region, possibly the stream ARN.
        but we do not get that from the CloudWatchLogsClient;
        instead we would have to include an IAM client as well. */
 
