@@ -90,8 +90,19 @@ CloudWatchLogsController::CloudWatchLogsController(const char *aws_region,
                                                    const char *log_group,
                                                    const char *log_stream) {
     // catch possible NULLs in params
-    this->log_group  = log_group  ? Aws::String(log_group)  : Aws::String();
-    this->log_stream = log_stream ? Aws::String(log_stream) : Aws::String();
+    if (log_group) {
+        this->log_group = Aws::String(log_group);
+    } else {
+        this->log_group = "rsyslog";
+    }
+
+    if (log_stream) {
+        this->log_stream = Aws::String(log_stream);
+    } else {
+        char hostname[HOST_NAME_MAX];
+        gethostname(hostname, HOST_NAME_MAX);
+        this->log_stream = Aws::String(hostname);
+    }
 
     Aws::Client::ClientConfiguration clientConfig;
     if (aws_region) {
@@ -99,25 +110,21 @@ CloudWatchLogsController::CloudWatchLogsController(const char *aws_region,
     } // else: default region is us-east-1
     client = new Aws::CloudWatchLogs::CloudWatchLogsClient(clientConfig);
 
+    /* this const should match the batch size in omawslogs.
+       a smaller value will still work, but incur a performance penalty
+       (due to std::vector resizing). */
+    const int omawslogs_max_batch_size = 1024;
+    events.reserve(omawslogs_max_batch_size);
+
     /* it might be useful to show some user/client metadata
        like account ID and actual region, possibly the stream ARN.
        but we do not get that from the CloudWatchLogsClient;
        instead we would have to include an IAM client as well. */
 
-    AWS_LOGSTREAM_INFO(RSYSLOG_AWSLIB_TAG, "initialized AWS API and created CloudWatchLogsClient");
+    AWS_LOGSTREAM_INFO(RSYSLOG_AWSLIB_TAG, "created CloudWatchLogsClient");
 }
 
 int CloudWatchLogsController::EnsureGroupAndStream() {
-    // set default values
-    if (log_group.empty()) {
-        log_group = "rsyslog";
-    }
-    if (log_stream.empty()) {
-        char hostname[HOST_NAME_MAX];
-        gethostname(hostname, HOST_NAME_MAX);
-        log_stream = Aws::String(hostname);
-    }
-
     // check log group
     Aws::CloudWatchLogs::Model::DescribeLogGroupsRequest desc_group_req;
     Aws::CloudWatchLogs::Model::DescribeLogGroupsOutcome desc_group_resp;
@@ -208,17 +215,11 @@ int CloudWatchLogsController::EnsureGroupAndStream() {
 void aws_init(int loglevel) {
 	options.loggingOptions.logLevel = static_cast<Aws::Utils::Logging::LogLevel>(loglevel);
 	Aws::InitAPI(options);
+    AWS_LOGSTREAM_INFO(RSYSLOG_AWSLIB_TAG, "initialized AWS API");
 }
 
 CloudWatchLogsController *aws_create_controller(const char *region, const char *group_name, const char *stream_name) {
-    /* this const should match the batch size in omawslogs.
-     * a smaller value will still work, but incur a performance penalty
-     * (due to std::vector resizing). */
-    const int omawslogs_max_batch_size = 1024;
-
-    auto obj = new CloudWatchLogsController(region, group_name, stream_name);
-    obj->events.reserve(omawslogs_max_batch_size);
-    return obj;
+    return new CloudWatchLogsController(region, group_name, stream_name);
 }
 
 void aws_free_controller(CloudWatchLogsController *ctl) {
