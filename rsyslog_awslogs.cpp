@@ -76,12 +76,16 @@ int CloudWatchLogsController::PutLogEvents() {
         result = put_resp.GetResult();
         seq_token = result.GetNextSequenceToken();
 
-        last_error_message[0] = '\0';
+        Aws::CloudWatchLogs::Model::RejectedLogEventsInfo rej_info =
+                result.GetRejectedLogEventsInfo();
+        std::snprintf(last_error_message, RSYSLOG_AWSLIB_ERR_MSG_SIZE,
+                      "PutLogEvents successful, RejectedLogEventsInfo exp/new/old: %d/%d/%d",
+                      rej_info.GetExpiredLogEventEndIndex(),
+                      rej_info.GetTooNewLogEventStartIndex(),
+                      rej_info.GetTooOldLogEventEndIndex());
         last_status_code = 0;
 
         events.clear();
-
-        // TODO: even on success we should read the RejectedLogEventsInfo
     }
     return 0;
 }
