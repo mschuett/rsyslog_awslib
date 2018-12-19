@@ -52,6 +52,8 @@ int CloudWatchLogsController::PutLogEvent(const char *msg) {
         seq_token = result.GetNextSequenceToken();
     }
 
+	last_error_message[0] = '\0';
+	last_status_code = 0;
     return 0;
 }
 
@@ -171,7 +173,8 @@ int CloudWatchLogsController::EnsureGroupAndStream() {
                 ", created " << stream.GetCreationTime() << \
                 ", with last sequence token " << seq_token);
     }
-    last_status_code = 0;
+	last_error_message[0] = '\0';
+	last_status_code = 0;
     return 0;
 }
 
