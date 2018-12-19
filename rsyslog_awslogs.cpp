@@ -16,6 +16,8 @@
 #include <chrono>
 #include <iostream>
 
+static Aws::SDKOptions options;
+
 void CloudWatchLogsController::SetLogEvent(const char *msg) {
     this->SetLogEventBatch(&msg, 1);
 }
@@ -90,9 +92,6 @@ CloudWatchLogsController::CloudWatchLogsController(const char *aws_region,
     // catch possible NULLs in params
     this->log_group  = log_group  ? Aws::String(log_group)  : Aws::String();
     this->log_stream = log_stream ? Aws::String(log_stream) : Aws::String();
-
-    options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Info;
-    Aws::InitAPI(options);
 
     Aws::Client::ClientConfiguration clientConfig;
     if (aws_region) {
@@ -205,7 +204,13 @@ int CloudWatchLogsController::EnsureGroupAndStream() {
     return 0;
 }
 
-CloudWatchLogsController *aws_init(const char *region, const char *group_name, const char *stream_name) {
+
+void aws_init(int loglevel) {
+	options.loggingOptions.logLevel = static_cast<Aws::Utils::Logging::LogLevel>(loglevel);
+	Aws::InitAPI(options);
+}
+
+CloudWatchLogsController *aws_create_controller(const char *region, const char *group_name, const char *stream_name) {
     /* this const should match the batch size in omawslogs.
      * a smaller value will still work, but incur a performance penalty
      * (due to std::vector resizing). */
@@ -214,6 +219,10 @@ CloudWatchLogsController *aws_init(const char *region, const char *group_name, c
     auto obj = new CloudWatchLogsController(region, group_name, stream_name);
     obj->events.reserve(omawslogs_max_batch_size);
     return obj;
+}
+
+void aws_free_controller(CloudWatchLogsController *ctl) {
+	delete ctl;
 }
 
 int aws_logs_ensure(CloudWatchLogsController *ctl) {
@@ -230,8 +239,8 @@ int aws_logs_msg_put_batch(CloudWatchLogsController *ctl, const char *msg[], uns
     return ctl->PutLogEvents();
 }
 
-void aws_shutdown(CloudWatchLogsController *ctl) {
-    Aws::ShutdownAPI(ctl->options);
+void aws_shutdown() {
+    Aws::ShutdownAPI(options);
 }
 
 int aws_logs_get_last_status(CloudWatchLogsController *ctl) {
